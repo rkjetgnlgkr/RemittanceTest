@@ -23,7 +23,27 @@
    - 完成 Vue 內的 `cancelItem(id)` 函數，並根據 API 回傳結果更新 UI。
 5. **架構問答 (請直接回答於下方)**
    - 雖然本測試使用 In-Memory List 模擬資料庫，但在正式的 SQL Server 環境中，您會如何撰寫 T-SQL 或 Entity Framework Core 程式碼，來確保「多個使用者同時對同一筆資料按下取消」時，不會發生 Race Condition？
-   - **您的回答：** (請在此作答...)
+   - **您的回答：**<br>
+      在正式 SQL Server 環境中，有兩種主要做法：
+
+      方案一：樂觀並發（Optimistic Concurrency）
+      在 Remittance 資料表加上 RowVersion 欄位：
+      ```C#
+      [Timestamp]
+      public byte[] RowVersion { get; set; }
+      ```
+      EF Core 會自動在 UPDATE 的 WHERE 條件加入 RowVersion 比對。若兩個 request 同時讀到同一筆資料，只有第一個 UPDATE 會成功（RowVersion 已被改變），第二個會拋出 DbUpdateConcurrencyException，再 catch 後回傳 400。
+
+      方案二：悲觀鎖定（Pessimistic Locking）
+      使用原始 SQL 搭配 UPDLOCK + ROWLOCK hint，在讀取時就鎖住該行：
+      ```C#
+      var remittance = await context.Remittances
+         .FromSqlRaw("SELECT * FROM Remittances WITH (UPDLOCK, ROWLOCK) WHERE Id = {0}", id)
+         .FirstOrDefaultAsync();
+      ```
+      這樣第二個 request 在第一個交易尚未完成前會被阻擋，但高併發時效能較差。
+
+      結論： 一般推薦樂觀並發，失敗時成本低；只有在衝突極頻繁、必須保證順序的場景才考慮悲觀鎖定。
 
 ## 提交要求
 1. 請使用 GitHub Public Repository 提交。
