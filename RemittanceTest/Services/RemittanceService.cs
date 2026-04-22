@@ -17,9 +17,19 @@ namespace RemittanceTest.Services
 
         public (bool IsSuccess, string Message) CancelRemittance(int id)
         {
-            // TODO: 請在此處實作「取消」的商業邏輯與防併發檢核
+            lock (_lockObj)
+            {
+                var remittance = _db.FirstOrDefault(r => r.Id == id);
 
-            throw new NotImplementedException();
+                if (remittance == null)
+                    return (false, "找不到指定的匯款資料。");
+
+                if (remittance.Status != 0)
+                    return (false, "僅狀態為「待覆核」的資料可執行取消。");
+
+                remittance.Status = 9;
+                return (true, "取消成功。");
+            }
         }
     }
 }
