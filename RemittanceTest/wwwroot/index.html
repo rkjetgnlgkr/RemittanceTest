@@ -39,11 +39,20 @@
                     return map[status] || '未知狀態';
                 };
 
-                // TODO: 請實作此函數
                 const cancelItem = async (id) => {
-                    // 1. 呼叫 POST API
-                    // 2. 處理成功與失敗的回應
-                    // 3. 成功後更新 remittances 中的狀態
+                    try {
+                        const response = await fetch(`/api/remittance/${id}/cancel`, { method: 'POST' });
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            const item = remittances.value.find(r => r.id === id);
+                            if (item) item.status = 9;
+                        } else {
+                            alert(data.message || '取消失敗');
+                        }
+                    } catch {
+                        alert('網路錯誤，請稍後再試');
+                    }
                 };
 
                 return { remittances, getStatusText, cancelItem };
